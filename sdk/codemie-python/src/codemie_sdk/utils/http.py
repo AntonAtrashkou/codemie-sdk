@@ -415,3 +415,53 @@ class ApiRequestHandler:
         response.raise_for_status()
 
         return self._parse_response(response, response_model, wrap_response)
+
+    def request(
+        self,
+        method: str,
+        endpoint: str,
+        response_model: Type[T],
+        json_data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        data: str | bytes | None = None,
+        extra_headers: dict[str, str] | None = None,
+        wrap_response: bool = True,
+    ) -> T:
+        """Makes a request with any method and extra headers, and parses the response.
+
+        Meant for routes that need a header the verb helpers do not take (for example
+        ``If-Match`` or ``Idempotency-Key``), a raw body on PUT, or a body on DELETE
+        together with headers.
+
+        Args:
+            method: HTTP method
+            endpoint: API endpoint path
+            response_model: Pydantic model class or list[Model] for response, or
+                requests.Response to get the response back unparsed
+            json_data: JSON request body
+            params: Query parameters
+            data: Raw request body for non-JSON payloads; set its Content-Type via extra_headers
+            extra_headers: Additional HTTP headers; they replace the defaults of the same name
+            wrap_response: Whether response is wrapped in 'data' field
+
+        Returns:
+            Parsed response object or list of objects, or the raw Response
+        """
+        headers = self._get_headers()
+        if extra_headers:
+            headers.update(extra_headers)
+        response = requests.request(
+            method=method.upper(),
+            url=f"{self._base_url}{endpoint}",
+            headers=headers,
+            json=json_data,
+            params=params,
+            data=data,
+            verify=self._verify_ssl,
+        )
+        response.raise_for_status()
+
+        if response_model is None or response_model is requests.Response:
+            return response
+
+        return self._parse_response(response, response_model, wrap_response)

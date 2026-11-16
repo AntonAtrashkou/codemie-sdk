@@ -213,6 +213,8 @@ from .models.provisioning import (
     ProvisioningBudgetResult,
 )
 from .services.provisioning import ProvisioningService
+from .models.hosted_application import HostedApplication, HostedApplicationVersion
+from .services.hosted_application import HostedApplicationService
 
 try:
     __version__ = _pkg_version("codemie-sdk-python")
@@ -381,4 +383,7 @@ __all__ = [
     "MarketplaceForcePublishResponse",
     "MarketplaceDecisionRequest",
     "MarketplaceManagementService",
+    "HostedApplication",
+    "HostedApplicationVersion",
+    "HostedApplicationService",
 ]
