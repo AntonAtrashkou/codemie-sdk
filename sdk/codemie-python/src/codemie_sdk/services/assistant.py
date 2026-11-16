@@ -32,6 +32,7 @@ from ..models.assistant import (
     AssistantProjectFeature,
     AssistantProjectMappingListResponse,
     AssistantProjectMappingRequest,
+    SubAssistantPublishSettings,
 )
 from ..models.common import PaginationParams
 from ..models.conversation import BaseResponse
@@ -562,6 +563,7 @@ class AssistantService:
         ignore_recommendations: bool = False,
         force_publish: bool = False,
         override_notice: str | None = None,
+        sub_assistants_settings: list[SubAssistantPublishSettings] | None = None,
     ) -> dict:
         """Publish an assistant to the marketplace.
         Args:
@@ -571,6 +573,9 @@ class AssistantService:
             force_publish: Admins and maintainers only: publish over CRITICAL gate findings.
                 Requires override_notice.
             override_notice: Justification for force_publish, 20 to 2000 characters
+            sub_assistants_settings: Per-sub-assistant settings (marketplace visibility,
+                toolkits, mcp_servers, categories) applied when this assistant has
+                sub-assistants
         """
         body = {}
         if categories:
@@ -581,6 +586,11 @@ class AssistantService:
             body["force_publish"] = force_publish
         if override_notice is not None:
             body["override_notice"] = override_notice
+        if sub_assistants_settings is not None:
+            body["sub_assistants_settings"] = [
+                settings.model_dump(exclude_none=True)
+                for settings in sub_assistants_settings
+            ]
 
         return self._api.post(
             f"/v1/assistants/{assistant_id}/marketplace/publish",
