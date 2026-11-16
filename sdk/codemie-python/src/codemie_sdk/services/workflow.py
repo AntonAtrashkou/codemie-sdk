@@ -14,6 +14,7 @@ from ..models.workflow import (
     WorkflowGeneratorRequest,
     WorkflowGeneratorResponse,
     WorkflowRollbackRequest,
+    WorkflowRollbackResponse,
     WorkflowVersionHistoryResponse,
     Workflow,
 )
@@ -327,6 +328,12 @@ class WorkflowService:
         any link whose catalogue entry is unavailable is disabled instead of
         blocking the rollback.
 
+        The backend's wrapper model serializes with ``alias_generator=to_camel``, so
+        the raw JSON carries ``disabledMcpServers`` even though each entry's own
+        fields stay snake_case; this method normalizes the top-level key back to
+        ``disabled_mcp_servers`` before returning, so callers never see the
+        backend's camelCase quirk.
+
         Args:
             workflow_id: ID of the workflow
             revision_index: Absolute 0-based position of the target revision, as
@@ -334,17 +341,18 @@ class WorkflowService:
             change_notes: Optional note stored with the new revision (max 1000 characters)
 
         Returns:
-            The API confirmation message plus ``disabled_mcp_servers``
+            The API confirmation message plus ``disabled_mcp_servers`` (snake_case)
         """
         request = WorkflowRollbackRequest(
             revision_index=revision_index, change_notes=change_notes
         )
-        return self._api.post(
+        raw = self._api.post(
             f"/v1/workflows/{workflow_id}/versions/rollback",
             dict,
             json_data=request.model_dump(exclude_none=True),
             wrap_response=False,
         )
+        return WorkflowRollbackResponse.model_validate(raw).model_dump()
 
     def executions(self, workflow_id: str) -> WorkflowExecutionService:
         """Get workflow execution service for the specified workflow.

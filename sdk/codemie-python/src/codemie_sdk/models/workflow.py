@@ -103,6 +103,37 @@ class WorkflowRollbackRequest(BaseModel):
     change_notes: str | None = Field(default=None, max_length=1000)
 
 
+class DisabledMcpServerInfo(BaseModel):
+    """One mcp_servers link a rollback disabled because its catalog entry is
+    unavailable. The backend reports these fields in snake_case already."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str
+    mcp_config_id: str | None = None
+    reason: str | None = None
+    address: str | None = None
+
+
+class WorkflowRollbackResponse(BaseModel):
+    """Response for a workflow rollback.
+
+    The backend wraps this in a model with ``alias_generator=to_camel``, so the
+    raw JSON carries ``disabledMcpServers`` even though the nested
+    ``DisabledMcpServerInfo`` fields stay snake_case. ``populate_by_name`` plus the
+    alias below let ``model_validate`` read the camelCase wire field while
+    ``model_dump()`` (no ``by_alias``) still writes it back out as
+    ``disabled_mcp_servers``, consistent with the rest of the SDK's conventions.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    message: str
+    disabled_mcp_servers: list[DisabledMcpServerInfo] = Field(
+        default_factory=list, alias="disabledMcpServers"
+    )
+
+
 class ExecutionStatus(str, Enum):
     IN_PROGRESS = "In Progress"
     NOT_STARTED = "Not Started"
