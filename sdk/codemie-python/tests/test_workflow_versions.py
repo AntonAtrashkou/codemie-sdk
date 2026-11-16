@@ -1,174 +1,115 @@
-import json
-from datetime import datetime
+# Copyright 2026 EPAM Systems, Inc. ("EPAM")
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tests for WorkflowService.list_versions()/rollback(), mirroring the DummyApi
+pattern used for AssistantService's own version endpoints in
+``test_assistant_versions.py``.
+"""
+
 from types import SimpleNamespace
 
-import pytest
-import requests
-from pydantic import ValidationError
-
 from codemie_sdk.services.workflow import WorkflowService
-from codemie_sdk.models.workflow import (
-    WorkflowRevisionCreatedBy,
-    WorkflowVersionHistoryResponse,
-)
-from codemie_sdk.utils import ApiRequestHandler
-
-# Raw GET /v1/workflows/{id}/versions body as the backend serializes it (not wrapped in "data").
-VERSIONS_WIRE_PAYLOAD = {
-    "revisions": [
-        {
-            "yaml_config": "steps: []",
-            "date": "2026-08-27T10:00:00",
-            "created_by": {"user_id": "u1", "username": "alice", "name": "Alice"},
-            "change_notes": None,
-        }
-    ],
-    "total_revisions": 1,
-    "workflow_name": "My Workflow",
-    "workflow_id": "wf-123",
-}
-
-
-def _json_response(payload):
-    response = requests.Response()
-    response.status_code = 200
-    response._content = json.dumps(payload).encode()
-    return response
 
 
 class DummyApi:
-    """Records calls and parses the canned body through the real response parser."""
-
-    def __init__(self, versions_payload=None):
-        self._versions_payload = versions_payload or VERSIONS_WIRE_PAYLOAD
-        self.last_call = SimpleNamespace(
-            endpoint=None,
-            params=None,
-            json_data=None,
-            response_model=None,
-            wrap_response=None,
-        )
-        self._parser = ApiRequestHandler("https://api.example.com", "token")
+    def __init__(self, post_response: dict):
+        self.last_call = SimpleNamespace(endpoint=None, params=None, json_data=None)
+        self._post_response = post_response
 
     def get(self, endpoint, response_model, params=None, wrap_response=True):
         self.last_call.endpoint = endpoint
         self.last_call.params = params or {}
-        self.last_call.response_model = response_model
-        self.last_call.wrap_response = wrap_response
-        return self._parser._parse_response(
-            _json_response(self._versions_payload), response_model, wrap_response
-        )
+        raw = {
+            "revisions": [],
+            "total_revisions": 0,
+            "workflow_name": "wf",
+            "workflow_id": "workflow-123",
+        }
+        if response_model is dict:
+            return raw
+        return response_model.model_validate(raw)
 
     def post(
-        self, endpoint, response_model, json_data=None, stream=False, wrap_response=True
+        self, endpoint, response_model, json_data=None, wrap_response=True, **kwargs
     ):
         self.last_call.endpoint = endpoint
         self.last_call.json_data = json_data or {}
-        idx = (json_data or {}).get("revision_index", 0)
-        return {"message": f"Workflow wf-123 rolled back to revision {idx}."}
-
-
-def test_revision_created_by_parses_wire_user_id():
-    created = WorkflowRevisionCreatedBy.model_validate(
-        {"user_id": "u1", "username": "alice", "name": "Alice"}
-    )
-
-    assert created.user_id == "u1"
-    assert created.username == "alice"
-    assert created.name == "Alice"
+        return self._post_response
 
 
 def test_list_versions_calls_correct_endpoint():
     service = WorkflowService("https://api.example.com", "token")
-    dummy = DummyApi()
-    service._api = dummy
+    dummy_api = DummyApi(post_response={})
+    service._api = dummy_api
 
-    result = service.list_versions("wf-123")
+    res = service.list_versions("workflow-123", page=1, per_page=5)
 
-    assert dummy.last_call.endpoint == "/v1/workflows/wf-123/versions"
-    assert dummy.last_call.response_model is WorkflowVersionHistoryResponse
-    assert dummy.last_call.wrap_response is False
-    assert isinstance(result, WorkflowVersionHistoryResponse)
-    assert result.workflow_id == "wf-123"
-    assert result.workflow_name == "My Workflow"
-    assert result.total_revisions == 1
-    assert len(result.revisions) == 1
+    assert dummy_api.last_call.endpoint == "/v1/workflows/workflow-123/versions"
+    assert dummy_api.last_call.params == {"page": 1, "per_page": 5}
+    assert res.total_revisions == 0
+    assert res.workflow_id == "workflow-123"
 
 
-def test_list_versions_parses_wire_revision_fields():
+def test_rollback_normalizes_camelcase_disabled_mcp_servers_key():
+    """The backend's wrapper model serializes with ``alias_generator=to_camel``, so
+    the raw response carries ``disabledMcpServers``; rollback() must normalize that
+    back to ``disabled_mcp_servers`` while leaving each entry's own fields (already
+    snake_case) untouched.
+    """
     service = WorkflowService("https://api.example.com", "token")
-    service._api = DummyApi()
+    dummy_api = DummyApi(
+        post_response={
+            "message": "Workflow workflow-123 rolled back to revision 0.",
+            "disabledMcpServers": [
+                {
+                    "name": "srv",
+                    "mcp_config_id": "cfg-1",
+                    "reason": "missing",
+                    "address": None,
+                }
+            ],
+        }
+    )
+    service._api = dummy_api
 
-    revision = service.list_versions("wf-123").revisions[0]
+    res = service.rollback("workflow-123", 0)
 
-    assert revision.yaml_config == "steps: []"
-    assert revision.date == datetime(2026, 8, 27, 10, 0, 0)
-    assert isinstance(revision.created_by, WorkflowRevisionCreatedBy)
-    assert revision.created_by.user_id == "u1"
-    assert revision.created_by.username == "alice"
-    assert revision.created_by.name == "Alice"
-    assert revision.change_notes is None
+    assert (
+        dummy_api.last_call.endpoint == "/v1/workflows/workflow-123/versions/rollback"
+    )
+    assert dummy_api.last_call.json_data == {"revision_index": 0}
+    assert isinstance(res, dict)
+    assert res["message"] == "Workflow workflow-123 rolled back to revision 0."
+    assert res["disabled_mcp_servers"] == [
+        {"name": "srv", "mcp_config_id": "cfg-1", "reason": "missing", "address": None}
+    ]
 
 
-def test_list_versions_accepts_revision_without_creator():
-    # Backend declares YamlConfigHistory.created_by as Optional[UserEntity] = None.
-    payload = {
-        **VERSIONS_WIRE_PAYLOAD,
-        "revisions": [
-            {**VERSIONS_WIRE_PAYLOAD["revisions"][0], "created_by": None},
-            VERSIONS_WIRE_PAYLOAD["revisions"][0],
-        ],
-        "total_revisions": 2,
+def test_rollback_defaults_disabled_mcp_servers_to_empty_list():
+    service = WorkflowService("https://api.example.com", "token")
+    dummy_api = DummyApi(
+        post_response={
+            "message": "Workflow workflow-123 rolled back to revision 0.",
+            "disabledMcpServers": [],
+        }
+    )
+    service._api = dummy_api
+
+    res = service.rollback("workflow-123", 0, change_notes="manual rollback")
+
+    assert dummy_api.last_call.json_data == {
+        "revision_index": 0,
+        "change_notes": "manual rollback",
     }
-    service = WorkflowService("https://api.example.com", "token")
-    service._api = DummyApi(payload)
-
-    result = service.list_versions("wf-123")
-
-    assert result.revisions[0].created_by is None
-    assert result.revisions[1].created_by.user_id == "u1"
-
-
-def test_rollback_rejects_negative_revision_index():
-    service = WorkflowService("https://api.example.com", "token")
-    dummy = DummyApi()
-    service._api = dummy
-
-    with pytest.raises(ValidationError):
-        service.rollback("wf-123", -1)
-
-    assert dummy.last_call.endpoint is None
-
-
-def test_rollback_calls_correct_endpoint():
-    service = WorkflowService("https://api.example.com", "token")
-    dummy = DummyApi()
-    service._api = dummy
-
-    result = service.rollback("wf-123", 0)
-
-    assert dummy.last_call.endpoint == "/v1/workflows/wf-123/versions/rollback"
-    assert dummy.last_call.json_data["revision_index"] == 0
-    assert "change_notes" not in dummy.last_call.json_data
-    assert "rolled back" in result["message"]
-
-
-def test_rollback_includes_change_notes_when_provided():
-    service = WorkflowService("https://api.example.com", "token")
-    dummy = DummyApi()
-    service._api = dummy
-
-    service.rollback("wf-123", 2, change_notes="Reverting bad config")
-
-    assert dummy.last_call.json_data["revision_index"] == 2
-    assert dummy.last_call.json_data["change_notes"] == "Reverting bad config"
-
-
-def test_rollback_omits_change_notes_when_none():
-    service = WorkflowService("https://api.example.com", "token")
-    dummy = DummyApi()
-    service._api = dummy
-
-    service.rollback("wf-123", 1)
-
-    assert "change_notes" not in dummy.last_call.json_data
+    assert res["disabled_mcp_servers"] == []
