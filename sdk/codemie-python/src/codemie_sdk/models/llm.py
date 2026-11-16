@@ -15,6 +15,14 @@ class LLMProvider(str, Enum):
     ANTHROPIC = "anthropic"
 
 
+class ModelStatus(str, Enum):
+    """Platform-managed status of an LLM model."""
+
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    DEPRECATED = "deprecated"
+
+
 class CostConfig(BaseModel):
     """Cost configuration for LLM model."""
 
@@ -50,3 +58,4 @@ class LLMModel(BaseModel):
     is_premium: bool | None = None
     is_router: bool | None = None
     supports_tools: bool | None = None
+    status: ModelStatus | None = None

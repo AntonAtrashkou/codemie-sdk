@@ -306,6 +306,10 @@ class Assistant(AssistantBase):
     system_prompt_history: list[SystemPromptHistory] = Field(default_factory=list)
     project: str
     llm_model_type: str | None = None
+    effective_llm_model_reason: str | None = Field(
+        default=None,
+        description="Why the assistant detail shows a different model than the stored one",
+    )
     toolkits: list[ToolKitDetails] = Field(default_factory=list)
     conversation_starters: list[str] = Field(
         default_factory=list,
