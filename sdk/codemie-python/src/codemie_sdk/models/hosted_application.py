@@ -216,7 +216,7 @@ class HostedApplicationLaunch(BaseModel):
     policy_version: str | None = None
     content_origin: str
     action: str
-    ticket: str
+    ticket: str = Field(repr=False)
     issued_at: str | None = None
     expires_at: str | None = None
 
@@ -243,7 +243,7 @@ class HostedApplicationShareLinkInfo(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     id: str
-    token: str
+    token: str = Field(repr=False)
     created_at: str | None = None
 
 

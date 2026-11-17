@@ -213,7 +213,27 @@ from .models.provisioning import (
     ProvisioningBudgetResult,
 )
 from .services.provisioning import ProvisioningService
-from .models.hosted_application import HostedApplication, HostedApplicationVersion
+from .models.hosted_application import (
+    HostedApplication,
+    HostedApplicationCapabilities,
+    HostedApplicationCreator,
+    HostedApplicationDeletion,
+    HostedApplicationDeletionStatus,
+    HostedApplicationLaunch,
+    HostedApplicationList,
+    HostedApplicationSharableUsers,
+    HostedApplicationSharedWith,
+    HostedApplicationShareLink,
+    HostedApplicationShareLinkInfo,
+    HostedApplicationShareLinkTarget,
+    HostedApplicationUploadReceipt,
+    HostedApplicationUsage,
+    HostedApplicationValidationReport,
+    HostedApplicationVersion,
+    HostedApplicationVersionList,
+    HostedApplicationVersionQueued,
+    HostedApplicationVersionStart,
+)
 from .services.hosted_application import HostedApplicationService
 
 try:
@@ -384,6 +404,23 @@ __all__ = [
     "MarketplaceDecisionRequest",
     "MarketplaceManagementService",
     "HostedApplication",
+    "HostedApplicationCapabilities",
+    "HostedApplicationCreator",
+    "HostedApplicationDeletion",
+    "HostedApplicationDeletionStatus",
+    "HostedApplicationLaunch",
+    "HostedApplicationList",
+    "HostedApplicationSharableUsers",
+    "HostedApplicationSharedWith",
+    "HostedApplicationShareLink",
+    "HostedApplicationShareLinkInfo",
+    "HostedApplicationShareLinkTarget",
+    "HostedApplicationUploadReceipt",
+    "HostedApplicationUsage",
+    "HostedApplicationValidationReport",
     "HostedApplicationVersion",
+    "HostedApplicationVersionList",
+    "HostedApplicationVersionQueued",
+    "HostedApplicationVersionStart",
     "HostedApplicationService",
 ]

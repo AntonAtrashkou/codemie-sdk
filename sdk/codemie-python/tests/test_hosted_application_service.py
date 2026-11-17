@@ -14,12 +14,17 @@
 
 """Unit tests for the hosted application service: routes, headers and body shapes."""
 
+import inspect
 import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
+from pydantic import BaseModel
 
+import codemie_sdk
 from codemie_sdk.client.client import CodeMieClient
+from codemie_sdk.models import hosted_application as hosted_models
 from codemie_sdk.models.hosted_application import (
     HostedApplication,
     HostedApplicationCapabilities,
@@ -371,6 +376,120 @@ def test_open_share_link_does_not_log_the_token(service, caplog):
         service.open_share_link(secret)
 
     assert secret not in caplog.text
+
+
+def test_read_calls_route_and_parse(service):
+    with patch("codemie_sdk.utils.http.requests.get") as get:
+        get.return_value = _ok_response(_APP)
+        application = service.get_application(_APP_ID)
+        app_call = get.call_args.kwargs
+
+        get.return_value = _ok_response({"items": [], "next_cursor": "c2"})
+        versions = service.list_versions(_APP_ID, limit=5, cursor="c1")
+        versions_call = get.call_args.kwargs
+
+        get.return_value = _ok_response({"shared_with": [{"id": "u-2"}]})
+        shared = service.shared_with(_APP_ID)
+        shared_call = get.call_args.kwargs
+
+        get.return_value = _ok_response({"users": [{"id": "u-3"}]})
+        users = service.sharable_users(_APP_ID, "ann")
+        users_call = get.call_args.kwargs
+
+        get.return_value = _ok_response({"link": None})
+        link = service.get_share_link(_APP_ID)
+        link_call = get.call_args.kwargs
+
+    assert app_call["url"] == f"{_BASE}/{_APP_ID}"
+    assert isinstance(application, HostedApplication)
+    assert application.id == _APP_ID
+    assert versions_call["url"] == f"{_BASE}/{_APP_ID}/versions"
+    assert versions_call["params"] == {"limit": 5, "cursor": "c1"}
+    assert versions.next_cursor == "c2"
+    assert shared_call["url"] == f"{_BASE}/{_APP_ID}/shared-with"
+    assert shared.shared_with == [{"id": "u-2"}]
+    assert users_call["url"] == f"{_BASE}/{_APP_ID}/sharable-users"
+    assert users_call["params"] == {"q": "ann"}
+    assert users.users == [{"id": "u-3"}]
+    assert link_call["url"] == f"{_BASE}/{_APP_ID}/share-link"
+    assert link.link is None
+
+
+def test_delete_application_parses_the_accepted_answer(service):
+    # The platform answers a delete with 202 and the purge state, not with an empty body.
+    with patch("codemie_sdk.utils.http.requests.request") as request:
+        request.return_value = _ok_response({"state": "purging", "job_id": "j-1"}, 202)
+        deletion = service.delete_application(_APP_ID, _ETAG)
+
+    assert request.call_args.kwargs["method"] == "DELETE"
+    assert isinstance(deletion, HostedApplicationDeletion)
+    assert deletion.state == "purging"
+
+
+def test_request_returns_the_raw_response_when_asked(service):
+    raw = _ok_response({}, 204)
+    with patch("codemie_sdk.utils.http.requests.request", return_value=raw):
+        result = service._api.request("GET", "/v1/anything", requests.Response)
+
+    assert result is raw
+
+
+def test_request_logs_the_call_but_not_the_body(service, caplog):
+    secret = "body-secret-value"
+    with (
+        caplog.at_level(logging.DEBUG),
+        patch("codemie_sdk.utils.http.requests.request") as request,
+    ):
+        request.return_value = _ok_response({"app_id": _APP_ID})
+        service.open_share_link(secret)
+
+    assert "Making POST request to" in caplog.text
+    assert "Successfully processed POST request" in caplog.text
+    assert secret not in caplog.text
+
+
+def test_request_logs_the_failure_and_raises(service, caplog):
+    failing = _ok_response({})
+    failing.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
+    with (
+        caplog.at_level(logging.DEBUG),
+        patch("codemie_sdk.utils.http.requests.request", return_value=failing),
+        pytest.raises(requests.HTTPError),
+    ):
+        service.open_share_link("any-token")
+
+    assert "Error during POST request" in caplog.text
+
+
+def test_secret_fields_stay_out_of_repr_but_remain_readable():
+    link = hosted_models.HostedApplicationShareLinkInfo(id="l-1", token="link-secret")
+    launch = hosted_models.HostedApplicationLaunch(
+        method="POST",
+        version_id=_VERSION_ID,
+        content_origin="https://v.example.com",
+        action="https://v.example.com/_platform/launch",
+        ticket="ticket-secret",
+    )
+
+    for shown in (repr(link), str(link), repr(launch), str(launch)):
+        assert "link-secret" not in shown
+        assert "ticket-secret" not in shown
+    assert link.token == "link-secret"
+    assert launch.ticket == "ticket-secret"
+
+
+def test_every_hosted_model_is_exported_from_the_package():
+    models = {
+        name
+        for name, value in vars(hosted_models).items()
+        if inspect.isclass(value)
+        and issubclass(value, BaseModel)
+        and value.__module__ == hosted_models.__name__
+    }
+
+    assert models
+    assert models <= set(codemie_sdk.__all__)
+    assert all(hasattr(codemie_sdk, name) for name in models)
 
 
 def test_launch_sends_purpose_and_optional_fields_only_when_given(service):

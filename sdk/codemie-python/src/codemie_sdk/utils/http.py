@@ -450,18 +450,27 @@ class ApiRequestHandler:
         headers = self._get_headers()
         if extra_headers:
             headers.update(extra_headers)
-        response = requests.request(
-            method=method.upper(),
-            url=f"{self._base_url}{endpoint}",
-            headers=headers,
-            json=json_data,
-            params=params,
-            data=data,
-            verify=self._verify_ssl,
-        )
-        response.raise_for_status()
+        http_method = method.upper()
+        # The body is never logged here: callers send credentials such as share link tokens.
+        logger.debug(f"Making {http_method} request to {self._base_url}{endpoint}")
+        try:
+            response = requests.request(
+                method=http_method,
+                url=f"{self._base_url}{endpoint}",
+                headers=headers,
+                json=json_data,
+                params=params,
+                data=data,
+                verify=self._verify_ssl,
+            )
+            response.raise_for_status()
 
-        if response_model is None or response_model is requests.Response:
-            return response
-
-        return self._parse_response(response, response_model, wrap_response)
+            if response_model is None or response_model is requests.Response:
+                result = response
+            else:
+                result = self._parse_response(response, response_model, wrap_response)
+        except Exception as e:
+            logger.error(f"Error during {http_method} request to {endpoint}: {str(e)}")
+            raise
+        logger.info(f"Successfully processed {http_method} request to {endpoint}")
+        return result

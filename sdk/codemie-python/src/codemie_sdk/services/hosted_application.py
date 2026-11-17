@@ -55,7 +55,13 @@ _UPLOAD_GENERATION = "X-Upload-Generation"
 
 
 class HostedApplicationService:
-    """Service for hosted static applications: upload, share and open."""
+    """Service for hosted static applications: upload, share and open.
+
+    Every change sends an idempotency key. Without an ``idempotency_key`` argument the service
+    generates a fresh one per call, so a retry after a timeout is not protected from running twice
+    (for example, a second application is created). A caller that retries must generate one key
+    and pass the same value on every attempt.
+    """
 
     def __init__(self, api_domain: str, token: TokenSource, verify_ssl: bool = True):
         """Initialize the hosted application service.
