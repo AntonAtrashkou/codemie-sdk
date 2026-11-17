@@ -494,7 +494,9 @@ class HostedApplicationService:
 
     def open_share_link(self, token: str) -> HostedApplicationShareLinkTarget:
         """Open a share link: the caller gets view access and the application id."""
-        return self._api.post(
+        # `request` sends the body without logging it; `post` would write the token to the debug log.
+        return self._api.request(
+            "POST",
             f"{_BASE}/share-links/open",
             HostedApplicationShareLinkTarget,
             json_data={"token": token},

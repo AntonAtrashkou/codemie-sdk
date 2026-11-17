@@ -14,6 +14,7 @@
 
 """Unit tests for the hosted application service: routes, headers and body shapes."""
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -339,24 +340,37 @@ def test_share_link_calls_and_open_by_token(service):
     link = {"link": {"id": "l-1", "token": "tok", "created_at": "2026-01-01T00:00:00"}}
     with (
         patch("codemie_sdk.utils.http.requests.post") as post,
+        patch("codemie_sdk.utils.http.requests.request") as request,
         patch("codemie_sdk.utils.http.requests.delete") as delete,
     ):
         post.return_value = _ok_response(link)
+        request.return_value = _ok_response({"app_id": _APP_ID})
         delete.return_value = _ok_response({"link": None})
         created = service.create_share_link(_APP_ID)
-        create_url = post.call_args.kwargs["url"]
-        post.return_value = _ok_response({"app_id": _APP_ID})
         opened = service.open_share_link("tok")
         revoked = service.delete_share_link(_APP_ID)
 
-    assert create_url == f"{_BASE}/{_APP_ID}/share-link"
+    assert post.call_args.kwargs["url"] == f"{_BASE}/{_APP_ID}/share-link"
     assert isinstance(created, HostedApplicationShareLink)
     assert created.link.token == "tok"
-    assert post.call_args.kwargs["url"] == f"{_BASE}/share-links/open"
-    assert post.call_args.kwargs["json"] == {"token": "tok"}
+    assert request.call_args.kwargs["method"] == "POST"
+    assert request.call_args.kwargs["url"] == f"{_BASE}/share-links/open"
+    assert request.call_args.kwargs["json"] == {"token": "tok"}
     assert opened.app_id == _APP_ID
     assert delete.call_args.kwargs["url"] == f"{_BASE}/{_APP_ID}/share-link"
     assert revoked.link is None
+
+
+def test_open_share_link_does_not_log_the_token(service, caplog):
+    secret = "share-link-secret-value"
+    with (
+        caplog.at_level(logging.DEBUG),
+        patch("codemie_sdk.utils.http.requests.request") as request,
+    ):
+        request.return_value = _ok_response({"app_id": _APP_ID})
+        service.open_share_link(secret)
+
+    assert secret not in caplog.text
 
 
 def test_launch_sends_purpose_and_optional_fields_only_when_given(service):
