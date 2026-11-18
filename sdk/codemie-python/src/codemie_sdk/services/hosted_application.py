@@ -129,7 +129,9 @@ class HostedApplicationService:
             cursor: ``next_cursor`` of the previous page
             sort: updated_desc, created_desc or name_asc
             **filters: Further server filters such as ``artifact_kind``, ``project``,
-                ``created_by``, ``shared`` or ``status``; unset values are not sent
+                ``category``, ``created_by``, ``shared`` or ``status``; unset values are
+                not sent. A list, such as ``category=[id_1, id_2]``, repeats the query
+                parameter once per value and lists the applications that carry any of them
         """
         params: dict[str, Any] = {
             "scope": scope,
@@ -163,19 +165,79 @@ class HostedApplicationService:
         project: str,
         shared: bool = False,
         idempotency_key: str | None = None,
+        categories: list[str] | None = None,
     ) -> HostedApplication:
-        """Create a private application, or one shared with every member of ``project``."""
+        """Create a private application, or one shared with every member of ``project``.
+
+        Args:
+            name: Name of the application
+            description: Description of the application
+            project: Project the application belongs to
+            shared: Share the application with every member of ``project``
+            idempotency_key: Key to repeat the request safely
+            categories: Up to 3 category ids; not sent when omitted
+        """
+        body: dict[str, Any] = {
+            "name": name,
+            "description": description,
+            "project": project,
+            "shared": shared,
+        }
+        if categories is not None:
+            body["categories"] = categories
         return self._api.request(
             "POST",
             _BASE,
             HostedApplication,
-            json_data={
-                "name": name,
-                "description": description,
-                "project": project,
-                "shared": shared,
-            },
+            json_data=body,
             extra_headers=self._headers(idempotency_key=idempotency_key),
+            wrap_response=False,
+        )
+
+    def update_application(
+        self,
+        app_id: str,
+        if_match: str,
+        name: str | None = None,
+        description: str | None = None,
+        project: str | None = None,
+        shared: bool | None = None,
+        categories: list[str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> HostedApplication:
+        """Change the metadata of an application.
+
+        Only the arguments you pass are sent. ``categories`` replaces the whole list
+        (up to 3 ids); an empty list clears it, which the platform refuses for a
+        published application.
+
+        Args:
+            app_id: Application id
+            if_match: ``etag`` of the application
+            name: New name
+            description: New description
+            project: New project
+            shared: Share with every member of the project, or stop sharing
+            categories: New category ids
+            idempotency_key: Key to repeat the request safely
+        """
+        body: dict[str, Any] = {
+            key: value
+            for key, value in (
+                ("name", name),
+                ("description", description),
+                ("project", project),
+                ("shared", shared),
+                ("categories", categories),
+            )
+            if value is not None
+        }
+        return self._api.request(
+            "PATCH",
+            self._path(app_id),
+            HostedApplication,
+            json_data=body,
+            extra_headers=self._headers(if_match, idempotency_key),
             wrap_response=False,
         )
 
@@ -412,14 +474,28 @@ class HostedApplicationService:
         )
 
     def marketplace_publish(
-        self, app_id: str, if_match: str, idempotency_key: str | None = None
+        self,
+        app_id: str,
+        if_match: str,
+        idempotency_key: str | None = None,
+        categories: list[str] | None = None,
     ) -> HostedApplication:
-        """Publish an application to the marketplace."""
+        """Publish an application to the marketplace.
+
+        Args:
+            app_id: Application id
+            if_match: ``etag`` of the application
+            idempotency_key: Key to repeat the request safely
+            categories: 1 to 3 category ids to publish under; they replace the
+                categories of the application. The platform refuses a publication
+                without them, so leaving this out only works against a platform
+                that does not ask for categories.
+        """
         return self._api.request(
             "POST",
             self._path(app_id, "marketplace", "publish"),
             HostedApplication,
-            json_data={},
+            json_data={} if categories is None else {"categories": categories},
             extra_headers=self._headers(if_match, idempotency_key),
             wrap_response=False,
         )

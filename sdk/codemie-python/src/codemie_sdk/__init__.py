@@ -216,6 +216,7 @@ from .services.provisioning import ProvisioningService
 from .models.hosted_application import (
     HostedApplication,
     HostedApplicationCapabilities,
+    HostedApplicationCategory,
     HostedApplicationCreator,
     HostedApplicationDeletion,
     HostedApplicationDeletionStatus,
@@ -405,6 +406,7 @@ __all__ = [
     "MarketplaceManagementService",
     "HostedApplication",
     "HostedApplicationCapabilities",
+    "HostedApplicationCategory",
     "HostedApplicationCreator",
     "HostedApplicationDeletion",
     "HostedApplicationDeletionStatus",
