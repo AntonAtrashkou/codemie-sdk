@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .llm import ModelStatus
+from .llm import ModelStatus, ModelStatusValue
 
 
 class ApplicationInfo(BaseModel):
@@ -120,7 +120,7 @@ class AdminLLMModel(BaseModel):
     label: str
     model_type: str = Field(description="chat, embedding or audio_transcription")
     enabled: bool
-    status: ModelStatus
+    status: ModelStatusValue
     provider: str | None = None
     router_type: str | None = Field(
         default=None,
@@ -141,7 +141,7 @@ class LLMModelStatusUpdate(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     base_name: str
-    status: ModelStatus
+    status: ModelStatusValue
 
 
 class LLMModelStatusBulkItem(BaseModel):
@@ -159,7 +159,7 @@ class LLMModelStatusBulkItemResult(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     base_name: str
-    status: ModelStatus
+    status: ModelStatusValue
     success: bool
     error: str | None = None
 

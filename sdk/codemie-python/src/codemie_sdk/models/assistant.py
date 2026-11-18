@@ -11,6 +11,7 @@ from .categories import Category
 from .common import User
 from .integration import Integration
 from .errors import AgentErrorDetails, ToolErrorDetails
+from .llm import EffortLevel
 
 
 class ToolDetails(BaseModel):
@@ -325,6 +326,7 @@ class Assistant(AssistantBase):
     slug: str | None = None
     temperature: float | None = None
     top_p: float | None = None
+    effort: EffortLevel | None = None
     tools_tokens_size_limit: int | None = None
     context: list[Context] = Field(default_factory=list)
     user_abilities: list[Any] | None = None
@@ -402,6 +404,7 @@ class AssistantRequestBase(AssistantBase):
     slug: str | None = None
     temperature: float | None = None
     top_p: float | None = None
+    effort: EffortLevel | None = None
     tools_tokens_size_limit: int | None = None
     mcp_servers: list[MCPServerDetails] = Field(default_factory=list)
     assistant_ids: list[str] = Field(default_factory=list)

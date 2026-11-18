@@ -207,6 +207,22 @@ class TestGlobalDefault:
         assert delete.call_args.kwargs["url"].endswith("/v1/admin/llm/default")
         assert result.saved_base_name is None
 
+    def test_reset_reads_the_default_back_after_no_content(self, service):
+        empty = MagicMock()
+        empty.status_code = 204
+        empty.content = b""
+        with (
+            patch("codemie_sdk.utils.http.requests.delete") as delete,
+            patch("codemie_sdk.utils.http.requests.get") as get,
+        ):
+            delete.return_value = empty
+            get.return_value = _ok({**_DEFAULT, "saved_base_name": None})
+            result = service.reset_global_default_llm_model()
+
+        assert get.call_args.kwargs["url"].endswith("/v1/admin/llm/default")
+        assert isinstance(result, GlobalDefaultLLMModel)
+        assert result.saved_base_name is None
+
 
 class TestModelStatusFields:
     def test_llm_model_status_is_read_from_the_catalog(self):
@@ -244,3 +260,30 @@ class TestModelStatusFields:
         )
 
         assert assistant.effective_llm_model_reason is None
+
+    def test_unknown_catalog_status_does_not_break_parsing(self):
+        model = LLMModel.model_validate(
+            {"base_name": "model-a", "enabled": True, "status": "retired"}
+        )
+
+        assert model.status == "retired"
+
+    def test_unknown_admin_status_does_not_break_parsing(self):
+        model = AdminLLMModel.model_validate({**_ADMIN_MODEL, "status": "preview"})
+        update = LLMModelStatusUpdate.model_validate(
+            {"base_name": "model-a", "status": "preview"}
+        )
+
+        assert model.status == "preview"
+        assert update.status == "preview"
+
+    def test_known_status_is_still_an_enum(self):
+        update = LLMModelStatusUpdate.model_validate(
+            {"base_name": "model-a", "status": "enabled"}
+        )
+
+        assert update.status is ModelStatus.ENABLED
+
+    def test_bulk_item_request_still_rejects_an_unknown_status(self):
+        with pytest.raises(ValueError):
+            LLMModelStatusBulkItem(base_name="model-a", status="preview")

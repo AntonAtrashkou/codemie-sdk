@@ -217,7 +217,15 @@ class AdminService:
         )
 
     def reset_global_default_llm_model(self) -> GlobalDefaultLLMModel:
-        """Remove the saved global default so the configured one applies again."""
-        return self._api.delete(
+        """Remove the saved global default so the configured one applies again.
+
+        Returns:
+            The global default after the reset
+        """
+        result = self._api.delete(
             "/v1/admin/llm/default", GlobalDefaultLLMModel, wrap_response=False
         )
+        if result is None:
+            # The platform may answer 204 No Content; read the state back instead.
+            return self.get_global_default_llm_model()
+        return result
