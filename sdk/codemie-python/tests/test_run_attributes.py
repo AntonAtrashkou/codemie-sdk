@@ -3,13 +3,16 @@
 from unittest.mock import MagicMock, patch
 
 from codemie_sdk.models.analytics import (
+    AnalyticsQueryParams,
     PaginatedAnalyticsQueryParams,
+    RunAttributesQueryParams,
     TabularResponse,
 )
 from codemie_sdk.models.assistant import AssistantChatRequest
 from codemie_sdk.models.conversation import ConversationDetails
 from codemie_sdk.models.workflow import WorkflowExecution
 from codemie_sdk.services.analytics import AnalyticsService
+from codemie_sdk.services.workflow import WorkflowService
 from codemie_sdk.services.workflow_execution import WorkflowExecutionService
 
 _TABULAR_BODY = {
@@ -53,13 +56,34 @@ def test_workflow_execution_create_sends_attributes():
     assert payload["attributes"] == {"team": "alpha"}
 
 
-def test_workflow_execution_create_sends_null_attributes_by_default():
+def test_workflow_execution_create_omits_attributes_by_default():
     api = MagicMock()
     service = WorkflowExecutionService(api, "wf-1")
 
     service.create(user_input="go")
 
-    assert api.post.call_args.kwargs["json_data"]["attributes"] is None
+    assert "attributes" not in api.post.call_args.kwargs["json_data"]
+
+
+def test_workflow_run_forwards_attributes():
+    api = MagicMock()
+    service = WorkflowService("https://api.example.com", "token")
+    service._api = api
+
+    service.run("wf-1", user_input="go", attributes={"team": "alpha"})
+
+    assert api.post.call_args.args[0] == "/v1/workflows/wf-1/executions"
+    assert api.post.call_args.kwargs["json_data"]["attributes"] == {"team": "alpha"}
+
+
+def test_workflow_run_omits_attributes_by_default():
+    api = MagicMock()
+    service = WorkflowService("https://api.example.com", "token")
+    service._api = api
+
+    service.run("wf-1", user_input="go")
+
+    assert "attributes" not in api.post.call_args.kwargs["json_data"]
 
 
 def test_response_models_expose_attributes():
@@ -81,21 +105,34 @@ def test_response_models_expose_attributes():
     assert "attributes" in ConversationDetails.model_fields
 
 
-def test_analytics_query_params_serialize_dict_attributes_to_json():
-    params = PaginatedAnalyticsQueryParams(attributes={"team": "alpha", "env": "qa"})
+def test_run_attributes_params_serialize_dict_attributes_to_json():
+    params = RunAttributesQueryParams(attributes={"team": "alpha", "env": "qa"})
 
-    assert params.attributes == '{"team": "alpha", "env": "qa"}'
-    assert PaginatedAnalyticsQueryParams(attributes='{"a": "b"}').attributes == (
-        '{"a": "b"}'
+    assert params.model_dump(exclude_none=True)["attributes"] == (
+        '{"team": "alpha", "env": "qa"}'
     )
-    assert "attributes" not in PaginatedAnalyticsQueryParams().model_dump(
-        exclude_none=True
-    )
+    assert RunAttributesQueryParams(attributes='{"a": "b"}').model_dump()[
+        "attributes"
+    ] == ('{"a": "b"}')
+    assert "attributes" not in RunAttributesQueryParams().model_dump(exclude_none=True)
+
+
+def test_run_attributes_params_serialize_attributes_assigned_after_construction():
+    params = RunAttributesQueryParams()
+    params.attributes = {"team": "alpha"}
+
+    assert params.model_dump(exclude_none=True)["attributes"] == '{"team": "alpha"}'
+
+
+def test_attributes_filter_is_not_part_of_the_shared_params():
+    assert "attributes" not in AnalyticsQueryParams.model_fields
+    assert "attributes" not in PaginatedAnalyticsQueryParams.model_fields
+    assert "attributes" in RunAttributesQueryParams.model_fields
 
 
 def test_get_assistants_requests_sends_filters_and_parses_rows():
     service = AnalyticsService("https://api.example.com", "token")
-    params = PaginatedAnalyticsQueryParams(
+    params = RunAttributesQueryParams(
         attributes={"team": "alpha"}, assistant_id="asst-1"
     )
 
@@ -117,7 +154,7 @@ def test_get_workflows_executions_requests_endpoint():
     with patch("codemie_sdk.utils.http.requests.get") as get:
         get.return_value = _ok_response(_TABULAR_BODY)
         result = service.get_workflows_executions(
-            PaginatedAnalyticsQueryParams(attributes={"team": "alpha"})
+            RunAttributesQueryParams(attributes={"team": "alpha"})
         )
 
     kwargs = get.call_args.kwargs

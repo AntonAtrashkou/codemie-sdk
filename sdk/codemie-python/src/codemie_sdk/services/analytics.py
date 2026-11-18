@@ -12,6 +12,7 @@ from ..models.analytics import (
     CliAnalyticsSessionsResponse,
     CliAnalyticsUsersResponse,
     PaginatedAnalyticsQueryParams,
+    RunAttributesQueryParams,
     SummariesResponse,
     TabularResponse,
     UsersListResponse,
@@ -100,7 +101,8 @@ class AnalyticsService:
         Args:
             params: Query parameters (filters + pagination); ``assistant_id``
                 limits the rows to one assistant, ``client_source`` to one client,
-                ``attributes`` to requests that carry those run attributes
+                ``attributes`` (set on ``RunAttributesQueryParams``) to requests that
+                carry those run attributes
 
         Returns:
             TabularResponse with one row per assistant request, newest first,
@@ -136,7 +138,7 @@ class AnalyticsService:
         )
 
     def get_workflows_executions(
-        self, params: PaginatedAnalyticsQueryParams | None = None
+        self, params: RunAttributesQueryParams | None = None
     ) -> TabularResponse:
         """Get per-execution workflow analytics, one row per workflow execution.
 
@@ -159,7 +161,7 @@ class AnalyticsService:
     def get_attributes_usage(
         self,
         attribute_key: str | None = None,
-        params: PaginatedAnalyticsQueryParams | None = None,
+        params: RunAttributesQueryParams | None = None,
     ) -> TabularResponse:
         """Get usage grouped by the values of one run attribute key.
 

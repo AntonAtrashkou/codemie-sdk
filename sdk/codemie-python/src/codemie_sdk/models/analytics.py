@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class ResponseMetadata(BaseModel):
@@ -140,19 +140,6 @@ class AnalyticsQueryParams(BaseModel):
     )
     users: str | None = Field(None, description="Comma-separated user IDs")
     projects: str | None = Field(None, description="Comma-separated project names")
-    attributes: str | None = Field(
-        None,
-        description="Run attributes filter: a JSON object of string keys and string "
-        "values. A dict is serialized to JSON; a string is sent as it is.",
-    )
-
-    @field_validator("attributes", mode="before")
-    @classmethod
-    def _serialize_attributes(cls, value: Any) -> Any:
-        """Send a dict as the JSON object the endpoints expect in the query string."""
-        if isinstance(value, dict):
-            return json.dumps(value)
-        return value
 
 
 class PaginatedAnalyticsQueryParams(AnalyticsQueryParams):
@@ -168,6 +155,28 @@ class PaginatedAnalyticsQueryParams(AnalyticsQueryParams):
         None,
         description='Client source: "platform", "ms-teams-bot", "chrome_extension" or "other"',
     )
+
+
+class RunAttributesQueryParams(PaginatedAnalyticsQueryParams):
+    """Query parameters of the endpoints that filter by run attributes.
+
+    Used by ``get_assistants_requests``, ``get_workflows_executions`` and
+    ``get_attributes_usage``. Other analytics endpoints do not implement the
+    ``attributes`` filter, so it is not part of the shared base class.
+    """
+
+    attributes: str | dict[str, str] | None = Field(
+        None,
+        description="Run attributes filter: a JSON object of string keys and string "
+        "values. A dict is serialized to JSON; a string is sent as it is.",
+    )
+
+    @field_serializer("attributes")
+    def _serialize_attributes(self, value: str | dict[str, str] | None) -> str | None:
+        """Send a dict as the JSON object the endpoints expect in the query string."""
+        if isinstance(value, dict):
+            return json.dumps(value)
+        return value
 
 
 # ── CLI Analytics: /v1/analytics/cli-analytics/* ─────────────────────────────

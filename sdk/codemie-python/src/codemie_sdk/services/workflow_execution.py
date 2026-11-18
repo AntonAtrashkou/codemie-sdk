@@ -87,7 +87,7 @@ class WorkflowExecutionService:
         return self._api.post(
             f"/v1/workflows/{self._workflow_id}/executions",
             dict,
-            json_data=payload.model_dump(),
+            json_data=payload.model_dump(exclude_none=True),
             extra_headers=headers,
         )
 
