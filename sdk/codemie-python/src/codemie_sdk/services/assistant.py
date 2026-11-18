@@ -141,6 +141,9 @@ class AssistantService:
         if "hide_tool_outputs" not in request.model_fields_set:
             # Don't overwrite the stored value with the model default on update.
             payload.pop("hide_tool_outputs", None)
+        if "effort" in request.model_fields_set and request.effort is None:
+            # exclude_none drops it; send an explicit null so the stored effort is cleared.
+            payload["effort"] = None
         return self._api.put(
             f"/v1/assistants/{assistant_id}",
             AssistantUpdateResponse,
