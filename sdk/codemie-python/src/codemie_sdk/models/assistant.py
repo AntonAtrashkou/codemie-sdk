@@ -11,6 +11,7 @@ from .categories import Category
 from .common import User
 from .integration import Integration
 from .errors import AgentErrorDetails, ToolErrorDetails
+from .llm import EffortLevel
 
 
 class ToolDetails(BaseModel):
@@ -155,6 +156,23 @@ class MCPServerDetails(BaseModel):
     mcp_connect_auth_token: Integration | None = None
     resolve_dynamic_values_in_arguments: bool = False
     tools: list[str] | None = None
+
+
+class SubAssistantPublishSettings(BaseModel):
+    """Settings for one sub-assistant when the parent is published to the marketplace.
+
+    Mirrors the backend's ``SubAssistantPublishSettings``
+    (``codemie/src/codemie/rest_api/models/assistant.py``); sent as
+    ``sub_assistants_settings`` on ``AssistantService.publish``.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    assistant_id: str
+    is_global: bool = True
+    toolkits: list[ToolKitDetails] | None = None
+    mcp_servers: list[MCPServerDetails] | None = None
+    categories: list[str] | None = Field(default_factory=list)
 
 
 class SystemPromptHistory(BaseModel):
@@ -304,6 +322,7 @@ class Assistant(AssistantBase):
     slug: str | None = None
     temperature: float | None = None
     top_p: float | None = None
+    effort: EffortLevel | None = None
     tools_tokens_size_limit: int | None = None
     context: list[Context] = Field(default_factory=list)
     user_abilities: list[Any] | None = None
@@ -381,6 +400,7 @@ class AssistantRequestBase(AssistantBase):
     slug: str | None = None
     temperature: float | None = None
     top_p: float | None = None
+    effort: EffortLevel | None = None
     tools_tokens_size_limit: int | None = None
     mcp_servers: list[MCPServerDetails] = Field(default_factory=list)
     assistant_ids: list[str] = Field(default_factory=list)
