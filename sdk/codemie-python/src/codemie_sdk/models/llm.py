@@ -15,6 +15,16 @@ class LLMProvider(str, Enum):
     ANTHROPIC = "anthropic"
 
 
+class EffortLevel(str, Enum):
+    """Reasoning effort levels, in ascending order."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    XHIGH = "xhigh"
+    MAX = "max"
+
+
 class CostConfig(BaseModel):
     """Cost configuration for LLM model."""
 
@@ -31,6 +41,8 @@ class LLMFeatures(BaseModel):
     parallel_tool_calls: bool | None = True
     system_prompt: bool | None = True
     max_tokens: bool | None = True
+    # Effort levels the model accepts, or None when the model has no effort support.
+    effort: list[EffortLevel] | None = None
 
 
 class LLMModel(BaseModel):
