@@ -221,6 +221,7 @@ from .services.export import ExportService
 from .models.hosted_application import (
     HostedApplication,
     HostedApplicationCapabilities,
+    HostedApplicationCategory,
     HostedApplicationCreator,
     HostedApplicationDeletion,
     HostedApplicationDeletionStatus,
@@ -415,6 +416,7 @@ __all__ = [
     "MarketplaceManagementService",
     "HostedApplication",
     "HostedApplicationCapabilities",
+    "HostedApplicationCategory",
     "HostedApplicationCreator",
     "HostedApplicationDeletion",
     "HostedApplicationDeletionStatus",
