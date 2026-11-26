@@ -28,6 +28,7 @@ from codemie_sdk.models import hosted_application as hosted_models
 from codemie_sdk.models.hosted_application import (
     HostedApplication,
     HostedApplicationCapabilities,
+    HostedApplicationCategory,
     HostedApplicationDeletion,
     HostedApplicationList,
     HostedApplicationShareLink,
@@ -141,6 +142,45 @@ def test_create_application_sends_body_and_idempotency_key(service):
     assert "If-Match" not in kwargs["headers"]
     assert isinstance(result, HostedApplication)
     assert result.etag == _ETAG
+
+
+def test_create_application_sends_the_categories_when_given(service):
+    with patch("codemie_sdk.utils.http.requests.request") as request:
+        request.return_value = _ok_response(_APP, 201)
+        service.create_application(
+            "demo", "demo app", "demo-project", categories=["cat-1", "cat-2"]
+        )
+        service.create_application("demo", "demo app", "demo-project", categories=[])
+        service.create_application("demo", "demo app", "demo-project")
+
+    bodies = [call.kwargs["json"] for call in request.call_args_list]
+    assert bodies[0]["categories"] == ["cat-1", "cat-2"]
+    assert bodies[1]["categories"] == []
+    assert "categories" not in bodies[2]
+
+
+def test_update_application_patches_only_the_given_values(service):
+    with patch("codemie_sdk.utils.http.requests.request") as request:
+        request.return_value = _ok_response(_APP)
+        result = service.update_application(
+            _APP_ID, _ETAG, categories=["cat-1"], idempotency_key="key-1"
+        )
+
+    kwargs = request.call_args.kwargs
+    assert kwargs["method"] == "PATCH"
+    assert kwargs["url"] == f"{_BASE}/{_APP_ID}"
+    assert kwargs["json"] == {"categories": ["cat-1"]}
+    assert kwargs["headers"]["If-Match"] == _ETAG
+    assert kwargs["headers"]["Idempotency-Key"] == "key-1"
+    assert isinstance(result, HostedApplication)
+
+
+def test_update_application_sends_an_empty_category_list_to_clear_them(service):
+    with patch("codemie_sdk.utils.http.requests.request") as request:
+        request.return_value = _ok_response(_APP)
+        service.update_application(_APP_ID, _ETAG, name="renamed", categories=[])
+
+    assert request.call_args.kwargs["json"] == {"name": "renamed", "categories": []}
 
 
 def test_changes_without_a_key_get_a_fresh_key_each_call(service):
@@ -307,6 +347,47 @@ def test_marketplace_calls_post_an_empty_body(service, method_name, suffix):
     assert kwargs["url"] == f"{_BASE}/{_APP_ID}/{suffix}"
     assert kwargs["json"] == {}
     assert kwargs["headers"]["If-Match"] == _ETAG
+
+
+def test_marketplace_publish_sends_the_categories(service):
+    with patch("codemie_sdk.utils.http.requests.request") as request:
+        request.return_value = _ok_response(_APP)
+        service.marketplace_publish(
+            _APP_ID, _ETAG, idempotency_key="key-1", categories=["cat-1", "cat-2"]
+        )
+
+    kwargs = request.call_args.kwargs
+    assert kwargs["method"] == "POST"
+    assert kwargs["url"] == f"{_BASE}/{_APP_ID}/marketplace/publish"
+    assert kwargs["json"] == {"categories": ["cat-1", "cat-2"]}
+    assert kwargs["headers"]["If-Match"] == _ETAG
+    assert kwargs["headers"]["Idempotency-Key"] == "key-1"
+
+
+def test_marketplace_publish_keeps_its_positional_arguments(service):
+    with patch("codemie_sdk.utils.http.requests.request") as request:
+        request.return_value = _ok_response(_APP)
+        service.marketplace_publish(_APP_ID, _ETAG, "key-2")
+
+    kwargs = request.call_args.kwargs
+    assert kwargs["headers"]["Idempotency-Key"] == "key-2"
+    assert kwargs["json"] == {}
+
+
+def test_application_parses_its_categories(service):
+    categories = [{"id": "cat-1", "name": "One"}, {"id": "cat-2", "name": "Two"}]
+    with patch("codemie_sdk.utils.http.requests.get") as get:
+        get.return_value = _ok_response({**_APP, "categories": categories})
+        result = service.get_application(_APP_ID)
+
+    assert result.categories == [
+        HostedApplicationCategory(id="cat-1", name="One"),
+        HostedApplicationCategory(id="cat-2", name="Two"),
+    ]
+
+
+def test_application_without_categories_has_an_empty_list():
+    assert HostedApplication.model_validate(_APP).categories == []
 
 
 def test_activate_and_select_version_send_the_version(service):

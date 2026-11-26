@@ -109,6 +109,7 @@ class ProjectDetailResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     name: str
+    project_instance_id: UUID | None = None
     display_name: str | None = None
     description: str | None = None
     project_type: str
@@ -119,6 +120,8 @@ class ProjectDetailResponse(BaseModel):
     cost_center_id: UUID | None = None
     cost_center_name: str | None = None
     members: list[ProjectMember]
+    enforce_member_spend_limits: bool = False
+    chargeback_enabled: bool = False
     chargeback_attribution: str = "project"
     allowed_models: list[str] | None = Field(
         default=None,
@@ -213,6 +216,40 @@ class ProjectAllowedModelsResponse(BaseModel):
     cost_center_name: str | None = None
     allowed_models: list[str] | None = None
     default_model: str | None = None
+
+
+class UserModelOverrideRequest(BaseModel):
+    """Request to set (replace) the models one project member may use."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    allowed_models: list[str]
+    default_model: str | None = None
+
+
+class UserModelOverrideBatchRequest(BaseModel):
+    """Request to grant or revoke the model override of several project members at once."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    operation: str
+    user_ids: list[str]
+    allowed_models: list[str] | None = None
+    default_model: str | None = None
+
+
+class UserModelOverrideResponse(BaseModel):
+    """The model override of one project member."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: UUID
+    user_id: str
+    project_name: str
+    allowed_models: list[str]
+    default_model: str | None = None
+    date: datetime | None = None
+    update_date: datetime | None = None
 
 
 class ProjectOwnershipUpdateRequest(BaseModel):

@@ -105,6 +105,12 @@ from .models.analytics import (
     CliAnalyticsRepositoriesResponse,
     CliInsightsUserDetailQueryParams,
 )
+from .models.headroom import (
+    HeadroomConfig,
+    HeadroomOverride,
+    HeadroomSavings,
+    HeadroomStrategy,
+)
 from .services.customer_config_service import CustomerConfigService
 from .services.vendor_assistant import VendorAssistantService
 from .services.vendor_workflow import VendorWorkflowService
@@ -205,6 +211,17 @@ from .models.marketplace_management import (
     MarketplaceReviewActionResponse,
     MarketplaceForcePublishResponse,
     MarketplaceDecisionRequest,
+    MarketplaceCleanupBucket,
+    MarketplaceCleanupRow,
+    MarketplaceCleanupResponse,
+    MarketplaceAuditStatus,
+    MarketplaceCleanupOrderBy,
+    MarketplaceCleanupReason,
+    MarketplaceUsageTier,
+    MarketplaceVerdictKind,
+    MarketplaceGateRule,
+    MarketplaceAuditRunStatus,
+    MarketplaceSimilarPair,
 )
 from .services.marketplace_management import MarketplaceManagementService
 from .models.provisioning import (
@@ -217,9 +234,11 @@ from .models.provisioning import (
     ProvisioningBudgetResult,
 )
 from .services.provisioning import ProvisioningService
+from .services.export import ExportService
 from .models.hosted_application import (
     HostedApplication,
     HostedApplicationCapabilities,
+    HostedApplicationCategory,
     HostedApplicationCreator,
     HostedApplicationDeletion,
     HostedApplicationDeletionStatus,
@@ -239,6 +258,16 @@ from .models.hosted_application import (
     HostedApplicationVersionStart,
 )
 from .services.hosted_application import HostedApplicationService
+from .models.scheduler import (
+    SchedulerLastRun,
+    SchedulerListItem,
+    SchedulerListResponse,
+    SchedulerPagination,
+    SchedulerProjectRef,
+    SchedulerResourceRef,
+    SchedulerSchedule,
+)
+from .services.scheduler import SchedulerService
 
 try:
     __version__ = _pkg_version("codemie-sdk-python")
@@ -330,6 +359,10 @@ __all__ = [
     "AnalyticsDetailResponse",
     "AnalyticsQueryParams",
     "PaginatedAnalyticsQueryParams",
+    "HeadroomConfig",
+    "HeadroomOverride",
+    "HeadroomSavings",
+    "HeadroomStrategy",
     "CliAnalyticsQueryParams",
     "CliAnalyticsSessionsQueryParams",
     "CliAnalyticsCostResponse",
@@ -395,6 +428,7 @@ __all__ = [
     "ProvisioningBudgetResponse",
     "ProvisioningBudgetResult",
     "ProvisioningService",
+    "ExportService",
     "MarketplaceStatusFilter",
     "MarketplaceGateResult",
     "MarketplacePendingOrderBy",
@@ -410,9 +444,21 @@ __all__ = [
     "MarketplaceReviewActionResponse",
     "MarketplaceForcePublishResponse",
     "MarketplaceDecisionRequest",
+    "MarketplaceCleanupBucket",
+    "MarketplaceCleanupRow",
+    "MarketplaceCleanupResponse",
+    "MarketplaceAuditStatus",
+    "MarketplaceCleanupOrderBy",
+    "MarketplaceCleanupReason",
+    "MarketplaceUsageTier",
+    "MarketplaceVerdictKind",
+    "MarketplaceGateRule",
+    "MarketplaceAuditRunStatus",
+    "MarketplaceSimilarPair",
     "MarketplaceManagementService",
     "HostedApplication",
     "HostedApplicationCapabilities",
+    "HostedApplicationCategory",
     "HostedApplicationCreator",
     "HostedApplicationDeletion",
     "HostedApplicationDeletionStatus",
@@ -431,4 +477,12 @@ __all__ = [
     "HostedApplicationVersionQueued",
     "HostedApplicationVersionStart",
     "HostedApplicationService",
+    "SchedulerLastRun",
+    "SchedulerListItem",
+    "SchedulerListResponse",
+    "SchedulerPagination",
+    "SchedulerProjectRef",
+    "SchedulerResourceRef",
+    "SchedulerSchedule",
+    "SchedulerService",
 ]
